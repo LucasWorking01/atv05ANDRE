@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frete a partir da Uninassau</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#eef3f4;--ink:#10252b;--muted:#5b717a;--card:#fff;--line:#d3dfe2;--accent:#0b6e7f;--sun:#f2b705;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1a1e;--ink:#e6f0f2;--muted:#8fa6ae;--card:#142429;--line:#27404a;--accent:#4fc3d6;--sun:#f2b705;--err:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.5}
+main{max-width:640px;margin:0 auto;padding:40px 20px 60px}
+h1{font-size:clamp(2rem,7vw,3.2rem);line-height:1.05;font-weight:800;margin:0 0 12px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 28px}
+.origin{border-left:4px solid var(--sun);padding:6px 0 6px 12px;margin-bottom:24px;font-size:.95rem}
+form{display:flex;gap:8px}
+input{flex:1;font:inherit;font-size:1.3rem;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);letter-spacing:.06em}
+input:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+button{font:inherit;font-weight:600;padding:12px 22px;border:0;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+@media (prefers-color-scheme:dark){button{color:#06222a}}
+button:disabled{opacity:.6;cursor:wait}
+#status{margin:16px 0;color:var(--muted);min-height:1.5em}
+#status.erro{color:var(--err);font-weight:600}
+#res{display:none}
+.addr{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.addr b{display:block;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.box small{color:var(--muted);display:block}
+.box .v{font-size:1.9rem;font-weight:800;letter-spacing:-.02em}
+.box.main{grid-column:1/-1;background:var(--accent);border-color:var(--accent);color:#fff}
+.box.main small{color:#d6f1f5}
+@media (prefers-color-scheme:dark){.box.main{color:#06222a}.box.main small{color:#0b3a46}}
+.box.main .v{font-size:2.6rem}
+details{margin-top:24px;font-size:.9rem}
+summary{cursor:pointer;font-weight:600}
+.cfg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.cfg label{display:block;color:var(--muted);font-size:.8rem}
+.cfg input{font-size:1rem;width:100%;letter-spacing:0;padding:8px 10px}
+.nota{color:var(--muted);font-size:.8rem;margin-top:20px}
+</style>
+</head>
+<body>
+<main>
+<h1>Quanto custa levar até aí?</h1>
+<p class="sub">Digite o CEP de destino e veja a distância, o frete e o preço estimado do Uber Moto.</p>
+
+<div class="origin"><b>Origem:</b> Uninassau, Rua Germano Franck, 613, Fortaleza, CE</div>
+
+<form id="f">
+  <input id="cep" inputmode="numeric" maxlength="9" placeholder="00000-000" aria-label="CEP de destino" autocomplete="postal-code" required>
+  <button id="btn">Calcular</button>
+</form>
+<div id="status" role="status" aria-live="polite"></div>
+
+<section id="res">
+  <div class="addr"><b id="logr"></b><span id="bairro"></span></div>
+  <div class="grid">
+    <div class="box main"><small>Frete</small><div class="v" id="frete"></div></div>
+    <div class="box"><small>Distância pelas ruas</small><div class="v" id="km"></div></div>
+    <div class="box"><small>Uber Moto (estimado)</small><div class="v" id="uber"></div><small id="tempo"></small></div>
+  </div>
+</section>
+
+<details>
+  <summary>Ajustar tarifas</summary>
+  <div class="cfg">
+    <div><label for="fFixo">Frete: taxa fixa (R$)</label><input id="fFixo" type="number" step="0.5" value="5"></div>
+    <div><label for="fKm">Frete: por km (R$)</label><input id="fKm" type="number" step="0.1" value="1.5"></div>
+    <div><label for="uBase">Moto: base (R$)</label><input id="uBase" type="number" step="0.5" value="2"></div>
+    <div><label for="uKm">Moto: por km (R$)</label><input id="uKm" type="number" step="0.1" value="1.1"></div>
+    <div><label for="uMin">Moto: por minuto (R$)</label><input id="uMin" type="number" step="0.05" value="0.25"></div>
+    <div><label for="uMinimo">Moto: tarifa mínima (R$)</label><input id="uMinimo" type="number" step="0.5" value="5.5"></div>
+  </div>
+</details>
+
+<p class="nota">Dados: ViaCEP (endereço), OpenStreetMap Nominatim (localização) e OSRM (rota). O Uber não oferece API pública de preços, então o valor do Uber Moto é uma estimativa calculada com as tarifas acima; o preço real varia com a demanda.</p>
+</main>
+
+<script>
+const ORIGEM = { rua: "Rua Germano Franck", num: "613", cidade: "Fortaleza", uf: "Ceará" };
+const $ = id => document.getElementById(id);
+const brl = n => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const num = id => parseFloat($(id).value) || 0;
+let ultimo = null;
+
+$("cep").addEventListener("input", e => {
+  let v = e.target.value.replace(/\D/g, "").slice(0, 8);
+  e.target.value = v.length > 5 ? v.slice(0, 5) + "-" + v.slice(5) : v;
+});
+
+function status(msg, erro) { $("status").textContent = msg; $("status").className = erro ? "erro" : ""; }
+
+async function geocode(consultas) {
+  for (const q of consultas) {
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&" + new URLSearchParams(q);
+    const r = await fetch(url);
+    if (!r.ok) continue;
+    const j = await r.json();
+    if (j.length) return { lat: +j[0].lat, lon: +j[0].lon };
+  }
+  return null;
+}
+
+async function rota(a, b) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if (j.code !== "Ok") throw new Error("rota");
+  return { km: j.routes[0].distance / 1000, min: j.routes[0].duration / 60 };
+}
+
+function precos() {
+  if (!ultimo) return;
+  const { km, min } = ultimo;
+  $("km").textContent = km.toFixed(1).replace(".", ",") + " km";
+  $("tempo").textContent = "cerca de " + Math.max(1, Math.round(min)) + " min de viagem";
+  $("frete").textContent = brl(num("fFixo") + num("fKm") * km);
+  $("uber").textContent = brl(Math.max(num("uMinimo"), num("uBase") + num("uKm") * km + num("uMin") * min));
+}
+document.querySelectorAll(".cfg input").forEach(i => i.addEventListener("input", precos));
+
+$("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const cep = $("cep").value.replace(/\D/g, "");
+  if (cep.length !== 8) return status("O CEP precisa ter 8 números.", true);
+  $("btn").disabled = true; $("res").style.display = "none";
+  try {
+    status("Buscando o CEP…");
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const end = await r.json();
+    if (end.erro) throw new Error("CEP não encontrado. Confira os números e tente de novo.");
+
+    status("Localizando origem e destino…");
+    const destino = await geocode([
+      { street: end.logradouro, city: end.localidade, state: end.uf },
+      { postalcode: cep },
+      { q: `${end.bairro}, ${end.localidade}, ${end.uf}` }
+    ].filter(q => (q.street ? end.logradouro : true)));
+    const origem = await geocode([
+      { street: `${ORIGEM.num} ${ORIGEM.rua}`, city: ORIGEM.cidade, state: ORIGEM.uf },
+      { street: ORIGEM.rua, city: ORIGEM.cidade, state: ORIGEM.uf }
+    ]);
+    if (!destino) throw new Error("Não consegui localizar esse CEP no mapa.");
+    if (!origem) throw new Error("Não consegui localizar a Uninassau no mapa. Tente de novo em instantes.");
+
+    status("Calculando a rota…");
+    ultimo = await rota(origem, destino);
+
+    $("logr").textContent = end.logradouro || "CEP geral da cidade";
+    $("bairro").textContent = [end.bairro, `${end.localidade} - ${end.uf}`].filter(Boolean).join(", ");
+    precos();
+    $("res").style.display = "block";
+    status("");
+  } catch (err) {
+    status(err.message === "rota" ? "Não foi possível traçar a rota até esse endereço." : err.message || "Algo deu errado. Verifique sua conexão.", true);
+  } finally { $("btn").disabled = false; }
+});
+</script>
+</body>
+</html>
